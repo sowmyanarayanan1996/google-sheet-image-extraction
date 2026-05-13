@@ -9,26 +9,27 @@ from PIL import Image as PILImage
 from openpyxl import load_workbook
 
 # ==========================================
-# SAFE OCR IMPORT WITH FALLBACK
+# CREATE TEMP
+# ==========================================
+
+os.makedirs("temp/images", exist_ok=True)
+
+# ==========================================
+# INITIALIZE OCR (without system dependencies)
 # ==========================================
 
 OCR_AVAILABLE = False
 engine = None
 
 try:
+    # Try to import and initialize RapidOCR
     from rapidocr_onnxruntime import RapidOCR
     engine = RapidOCR()
     OCR_AVAILABLE = True
-    print("✅ RapidOCR loaded successfully")
+    print("✓ OCR Engine initialized successfully")
 except Exception as e:
-    print(f"⚠️ Could not load RapidOCR: {e}")
-    print("📝 OCR functionality will be limited")
-
-# ==========================================
-# CREATE TEMP
-# ==========================================
-
-os.makedirs("temp/images", exist_ok=True)
+    print(f"⚠ OCR not available: {e}")
+    print("The app will still process images but without text extraction")
 
 # ==========================================
 # URL CHECK
@@ -41,18 +42,23 @@ def is_image_url(text):
     return text.startswith("http://") or text.startswith("https://")
 
 # ==========================================
-# OCR FUNCTION WITH FALLBACK
+# OCR FUNCTION
 # ==========================================
 
 def extract_text_from_image(pil_image):
-    if not OCR_AVAILABLE:
-        return "[OCR Engine Not Available - Image detected]"
+    """Extract text from image using OCR if available"""
+    if not OCR_AVAILABLE or engine is None:
+        return "[OCR unavailable - Image detected]"
     
     try:
+        # Convert PIL image to numpy array
         img_np = np.array(pil_image)
+        
+        # Perform OCR
         result, _ = engine(img_np)
         
         if result and len(result) > 0:
+            # Extract text from results
             texts = [item[1] for item in result if item and len(item) > 1]
             return "\n".join(texts) if texts else ""
         
@@ -62,30 +68,35 @@ def extract_text_from_image(pil_image):
         return f"[OCR Error: {str(e)}]"
 
 # ==========================================
-# MAIN FUNCTION
+# PROCESS EXCEL IMAGES
 # ==========================================
 
 def process_excel_images(excel_path):
+    """Extract all images from Excel file and run OCR on them"""
     results = []
     
     try:
+        # Load workbook
         wb = load_workbook(excel_path)
         ws = wb.active
         
-        # ======================================
-        # EMBEDDED IMAGES
-        # ======================================
+        # Process embedded images
         embedded_images = getattr(ws, "_images", [])
         
         for index, image in enumerate(embedded_images):
             try:
+                # Get image data
                 image_bytes = image._data()
+                
+                # Convert to PIL Image
                 pil_image = PILImage.open(io.BytesIO(image_bytes)).convert("RGB")
                 
+                # Save image
                 image_name = f"embedded_{index}.png"
                 image_path = f"temp/images/{image_name}"
                 pil_image.save(image_path)
                 
+                # Run OCR
                 extracted_text = extract_text_from_image(pil_image)
                 
                 results.append({
@@ -97,18 +108,16 @@ def process_excel_images(excel_path):
                 })
                 
             except Exception as e:
+                print(f"Error processing embedded image {index}: {e}")
                 results.append({
                     "image_name": f"embedded_{index}.png",
                     "image_path": "",
-                    "text": "",
+                    "text": f"Error: {str(e)}",
                     "source_type": "embedded_image",
-                    "image_url": "",
-                    "error": str(e)
+                    "image_url": ""
                 })
         
-        # ======================================
-        # IMAGE URLS
-        # ======================================
+        # Process image URLs in cells
         for row in ws.iter_rows():
             for cell in row:
                 try:
@@ -117,17 +126,21 @@ def process_excel_images(excel_path):
                     if is_image_url(cell_value):
                         image_url = str(cell_value).strip()
                         
+                        # Download image
                         response = requests.get(image_url, timeout=20)
                         if response.status_code != 200:
                             continue
                         
+                        # Convert to PIL Image
                         image_bytes = response.content
                         pil_image = PILImage.open(io.BytesIO(image_bytes)).convert("RGB")
                         
+                        # Save image
                         image_name = f"url_{uuid.uuid4().hex[:8]}.png"
                         image_path = f"temp/images/{image_name}"
                         pil_image.save(image_path)
                         
+                        # Run OCR
                         extracted_text = extract_text_from_image(pil_image)
                         
                         results.append({
@@ -139,17 +152,17 @@ def process_excel_images(excel_path):
                         })
                         
                 except Exception as e:
-                    # Skip individual URL errors
+                    print(f"Error processing URL cell: {e}")
                     continue
                     
     except Exception as e:
+        print(f"Error processing Excel file: {e}")
         results.append({
             "image_name": "",
             "image_path": "",
-            "text": "",
+            "text": f"Workbook Error: {str(e)}",
             "source_type": "error",
-            "image_url": "",
-            "error": f"Workbook Error: {str(e)}"
+            "image_url": ""
         })
     
     return results
