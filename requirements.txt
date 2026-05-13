@@ -2,6 +2,7 @@ streamlit
 requests
 openpyxl
 pillow
-rapidocr_onnxruntime
+# rapidocr_onnxruntime
+rapidocr_onnxruntime==1.3.24
 numpy
 onnxruntime
