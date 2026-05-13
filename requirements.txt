@@ -1,0 +1,7 @@
+streamlit
+requests
+openpyxl
+pillow
+rapidocr_onnxruntime
+numpy
+onnxruntime
