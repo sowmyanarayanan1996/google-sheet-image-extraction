@@ -8,8 +8,8 @@ from openpyxl import Workbook
 from openpyxl.drawing.image import Image
 from openpyxl.styles import Alignment
 
-from database import conn, cursor
-from ocr import process_excel_images
+from databases.database import conn, cursor
+from ocr.ocr import process_excel_images
 
 # ==========================================
 # PAGE CONFIG

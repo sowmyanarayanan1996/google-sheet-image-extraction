@@ -2,7 +2,7 @@ import sqlite3
 import os
 
 # ==========================================
-# CREATE DATA DIRECTORY
+# CREATE DATA FOLDER
 # ==========================================
 
 os.makedirs(
@@ -11,7 +11,7 @@ os.makedirs(
 )
 
 # ==========================================
-# SQLITE CONNECTION
+# DATABASE CONNECTION
 # ==========================================
 
 conn = sqlite3.connect(
@@ -22,7 +22,7 @@ conn = sqlite3.connect(
 cursor = conn.cursor()
 
 # ==========================================
-# CREATE TABLE
+# CREATE TABLES
 # ==========================================
 
 cursor.execute("""
